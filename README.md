@@ -1,53 +1,125 @@
-# CodeAlpha_ObjectDetectionTracking
+# CodeAlpha - Music Generation with AI
 
-Real-time object detection and tracking built for the CodeAlpha AI Internship (Task 4).
+An LSTM-based deep learning model that learns musical patterns from a
+collection of MIDI files and generates original piano compositions.
 
-## What it does
-- Reads video from a webcam or a video file (OpenCV).
-- Runs YOLOv8, a pre-trained object detector, on every frame.
-- Tracks detected objects across frames using ByteTrack (a modern SORT-family tracker
-  bundled with Ultralytics), assigning each object a persistent ID.
-- Draws bounding boxes, class labels, and track IDs on the video in real time.
+## Overview
 
-This satisfies the task checklist: webcam/video input → pre-trained detector (YOLO) →
-per-frame detection with bounding boxes → object tracking (SORT/Deep SORT family) →
-labeled, ID-tagged real-time display.
+This project uses a Recurrent Neural Network (LSTM) trained on note and
+chord sequences extracted from MIDI files. Once trained, the model can
+generate new, original note sequences which are converted back into a
+playable `.mid` file.
+
+**Pipeline:**
+1. `preprocess.py` — parses MIDI files and extracts notes/chords into a sequence
+2. `train.py` — trains an LSTM model on the extracted sequence
+3. `generate.py` — uses the trained model to generate new music and saves it as MIDI
+
+## Project Structure
+
+```
+Music-Generation-Project/
+├── midi_data/          # Folder of training MIDI files (not included in repo)
+├── preprocess.py        # Step 1: Extract notes/chords from MIDI files
+├── train.py              # Step 2: Train the LSTM model
+├── generate.py           # Step 3: Generate new music from the trained model
+├── notes.pkl              # Extracted note sequence (output of preprocess.py)
+├── vocab.pkl               # Vocabulary mapping + sequence length (output of train.py)
+├── model.h5                 # Trained model weights (output of train.py)
+├── generated.mid              # Example generated output
+├── requirements.txt
+└── README.md
+```
 
 ## Setup
+
 ```bash
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+venv\Scripts\activate       # Windows
+# source venv/bin/activate  # macOS/Linux
+
 pip install -r requirements.txt
 ```
 
-The first run will auto-download `yolov8n.pt` (~6MB) from Ultralytics.
+## Usage
 
-## Run
+### 1. Preprocess MIDI files
+
+Place your training MIDI files (e.g. classical piano pieces) in a folder,
+then run:
+
 ```bash
-# Webcam
-python detect_track.py --source 0
-
-# Video file
-python detect_track.py --source my_video.mp4
-
-# Save the annotated output to output.mp4
-python detect_track.py --source my_video.mp4 --save
-
-# Only track people (class 0) and cars (class 2)
-python detect_track.py --source 0 --classes 0,2
-
-# Use a bigger/more accurate model
-python detect_track.py --source 0 --model yolov8s.pt
+python preprocess.py --midi_dir midi_data
 ```
-Press `q` to quit the display window.
 
-## Notes / things you can extend
-- Swap `bytetrack.yaml` for `botsort.yaml` (`--tracker botsort.yaml`) to compare trackers.
-- Swap `yolov8n.pt` for `yolov8m.pt` or `yolov8l.pt` for higher accuracy (slower).
-- Add object counting (e.g., count unique IDs crossing a line) as a nice bonus feature
-  for your LinkedIn demo video.
+This extracts all notes and chords and saves them to `notes.pkl`.
 
-## Submission checklist (per CodeAlpha instructions)
-- [ ] Push this folder to GitHub as `CodeAlpha_ObjectDetectionTracking`
-- [ ] Record a short demo video and post on LinkedIn tagging @CodeAlpha, with the repo link
-- [ ] Submit through the CodeAlpha submission form shared in your WhatsApp group
+Optional arguments:
+- `--out` — output pickle file (default: `notes.pkl`)
+
+### 2. Train the model
+
+```bash
+python train.py --notes notes.pkl --epochs 60
+```
+
+This trains a 2-layer LSTM network on the note sequence and saves the
+best-performing model to `model.h5`, along with `vocab.pkl` (the
+note-to-integer mapping needed for generation).
+
+Optional arguments:
+- `--seq_len` — length of each training sequence (default: 50)
+- `--batch_size` — training batch size (default: 64)
+- `--out` — output model file (default: `model.h5`)
+
+### 3. Generate new music
+
+```bash
+python generate.py --model model.h5 --notes notes.pkl --out generated.mid
+```
+
+This seeds generation with a random sequence from the training data, then
+predicts new notes one at a time using the trained model, and writes the
+result to a playable MIDI file.
+
+Optional arguments:
+- `--length` — number of notes to generate (default: 200)
+- `--vocab` — vocabulary pickle file (default: `vocab.pkl`)
+
+## Model Architecture
+
+```
+LSTM(256, return_sequences=True)
+Dropout(0.3)
+LSTM(256)
+BatchNormalization()
+Dropout(0.3)
+Dense(256) + ReLU
+Dense(n_vocab) + Softmax
+```
+
+Trained with categorical crossentropy loss and the Adam optimizer.
+
+## Requirements
+
+- Python 3.9+
+- TensorFlow 2.15+
+- music21
+- NumPy
+
+See `requirements.txt` for exact versions.
+
+## Notes
+
+- Chords are encoded as their pitch-class normal order (e.g. `4.7.11`) and
+  decoded back into `music21` Chord objects during generation.
+- Generated note spacing is currently fixed (0.5 offset per note); this can
+  be randomized for a more human/expressive feel.
+- Larger and more diverse MIDI training sets generally produce more
+  musically coherent results.
+
+## Part of the CodeAlpha Internship
+
+This is Task 3 of the CodeAlpha AI internship program. The companion
+project, **Object Detection and Tracking**, is available in a separate
+repository: [CodeAlpha_Object-Detection-Tracking](https://github.com/arwindominic17-hub/CodeAlpha_Object-Detection-Tracking)
