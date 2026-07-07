@@ -1,16 +1,5 @@
-venv/
+﻿venv/
 __pycache__/
-*.py[cod]
-*.pyd
-*.dll
-model.h5
-generated.mid
-
-# Local environment and large generated files
-venv/
-__pycache__/
-*.py[cod]
-*.pyd
-*.dll
-model.h5
-generated.mid
+*.pyc
+*.h5
+midi_data/
